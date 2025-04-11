@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  namefuse:
+    build: .
+    container_name: namefuse
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - namefuse_data:/app/instance
+    environment:
+      - FLASK_APP=app.main
+      - FLASK_ENV=production
+      - SECRET_KEY=your-secret-key-here  # Change this in production
+
+volumes:
+  namefuse_data:
+    driver: local 
