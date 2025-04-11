@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NameFuse - Find Your Perfect Baby Name</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .name-card {
+            width: 300px;
+            height: 400px;
+            margin: 20px auto;
+            position: relative;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background-color: white;
+            padding: 20px;
+        }
+        .name {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        .info {
+            font-size: 1.2em;
+            color: #666;
+        }
+        .buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            padding: 0 20px;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .user-role {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .match-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white">
+        <div class="container">
+            <a class="navbar-brand" href="/">NameFuse</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-link user-role" id="userRoleDisplay"></span>
+                <a class="nav-link" href="/matches-page">View Matches</a>
+                <a class="nav-link" href="/" onclick="logout()">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="match-notification" id="matchNotification">
+        <h4 class="mb-2">It's a Match! 🎉</h4>
+        <p class="mb-0">You and your partner both liked <span id="matchedName"></span>!</p>
+    </div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Filters</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" id="genderFilter">
+                                <option value="">All</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Origin</label>
+                            <select class="form-select" id="originFilter">
+                                <option value="">All</option>
+                                <option value="GB">British</option>
+                                <option value="DE">German</option>
+                                <option value="IT">Italian</option>
+                                <option value="ES">Spanish</option>
+                                <option value="CH">Swiss</option>
+                                <option value="IE">Irish</option>
+                                <option value="IL">Hebrew</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="name-card" id="nameCard">
+                    <div class="text-center">
+                        <div class="name" id="currentName"></div>
+                        <div class="info" id="nameInfo"></div>
+                    </div>
+                    <div class="buttons">
+                        <button class="btn btn-danger btn-lg" onclick="handleName(false)">
+                            <i class="fas fa-times"></i> Dislike
+                        </button>
+                        <button class="btn btn-success btn-lg" onclick="handleName(true)">
+                            <i class="fas fa-heart"></i> Like
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if logged in
+        if (!sessionStorage.getItem('userRole')) {
+            window.location.href = '/';
+        }
+
+        // Display user role
+        const userRole = sessionStorage.getItem('userRole');
+        document.getElementById('userRoleDisplay').textContent = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+
+        let currentNameId = null;
+
+        function logout() {
+            sessionStorage.clear();
+        }
+
+        async function loadNewName() {
+            const gender = document.getElementById('genderFilter').value;
+            const origin = document.getElementById('originFilter').value;
+            
+            const params = new URLSearchParams();
+            if (gender) params.append('gender', gender);
+            if (origin) params.append('origin', origin);
+            
+            const response = await fetch(`/names/list?${params}`);
+            const names = await response.json();
+            
+            if (names.length > 0) {
+                const name = names[0];
+                currentNameId = name.id;
+                
+                document.getElementById('currentName').textContent = name.name;
+                document.getElementById('nameInfo').innerHTML = `
+                    Origin: ${name.origin}<br>
+                    Gender: ${name.gender}
+                `;
+            } else {
+                document.getElementById('currentName').textContent = 'No more names';
+                document.getElementById('nameInfo').innerHTML = 'Try different filters';
+            }
+        }
+
+        async function handleName(liked) {
+            if (!currentNameId) return;
+            
+            const response = await fetch('/like', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name_id: currentNameId,
+                    user_id: sessionStorage.getItem('userId'),
+                    liked: liked
+                })
+            });
+            
+            const result = await response.json();
+            if (result.matched) {
+                document.getElementById('matchedName').textContent = result.name;
+                const notification = document.getElementById('matchNotification');
+                notification.style.display = 'block';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 3000);
+            }
+            
+            loadNewName();
+        }
+
+        // Load initial name
+        loadNewName();
+        
+        // Add event listeners for filters
+        document.getElementById('genderFilter').addEventListener('change', loadNewName);
+        document.getElementById('originFilter').addEventListener('change', loadNewName);
+    </script>
+</body>
+</html> 
